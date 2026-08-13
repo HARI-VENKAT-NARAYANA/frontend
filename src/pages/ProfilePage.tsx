@@ -1,0 +1,21 @@
+import { Mail, MapPin, Phone, ShieldCheck } from 'lucide-react'
+import { useEffect, useState } from 'react'
+import api, { getApiError } from '../services/api'
+import type { Employee } from '../types'
+import { Avatar, ErrorState, formatCurrency, formatDate, getEmployeeName, PageHeader, Panel, Skeleton, StatusBadge, useToast } from '../components/ui'
+
+type ProfileTab = 'personal' | 'employment' | 'security'
+
+export default function ProfilePage() {
+  const [employee, setEmployee] = useState<Employee | null>(null)
+  const [loading, setLoading] = useState(true)
+  const [error, setError] = useState('')
+  const [tab, setTab] = useState<ProfileTab>('personal')
+  const { push } = useToast()
+  const load = () => { setLoading(true); api.get('/employees/me').then((response) => setEmployee(response.data.data)).catch((requestError) => setError(getApiError(requestError))).finally(() => setLoading(false)) }
+  useEffect(() => { load() }, [])
+  if (loading) return <><PageHeader eyebrow="Your workspace" title="My profile" /><Panel><div className="profile-loading"><Skeleton className="profile-skeleton-avatar" /><Skeleton className="skeleton-title" /><Skeleton className="skeleton-small" /></div></Panel></>
+  if (error || !employee) return <ErrorState message={error || 'Profile unavailable.'} retry={load} />
+  const user = typeof employee.user === 'object' ? employee.user : undefined
+  return <><PageHeader eyebrow="Your workspace" title="My profile" description="Your identity, contact details, and role at NEUZEN AI." actions={<StatusBadge status={employee.employmentStatus} />} /><Panel className="profile-hero"><Avatar name={getEmployeeName(employee)} size="lg" /><div><span className="eyebrow">{employee.employeeCode}</span><h2>{getEmployeeName(employee)}</h2><p>{employee.designation} · {employee.department}</p><div className="profile-contact"><span><Mail size={13} /> {user?.email || '—'}</span><span><Phone size={13} /> {employee.phone}</span><span><MapPin size={13} /> {employee.address}</span></div></div></Panel><div className="profile-tabs" role="tablist" aria-label="Profile details"><button type="button" role="tab" aria-selected={tab === 'personal'} className={tab === 'personal' ? 'active' : ''} onClick={() => setTab('personal')}>Personal information</button><button type="button" role="tab" aria-selected={tab === 'employment'} className={tab === 'employment' ? 'active' : ''} onClick={() => setTab('employment')}>Employment</button><button type="button" role="tab" aria-selected={tab === 'security'} className={tab === 'security' ? 'active' : ''} onClick={() => setTab('security')}>Security</button></div><Panel className="profile-detail-panel">{tab === 'personal' && <div className="detail-grid"><div><span className="detail-label">Full name</span><strong>{getEmployeeName(employee)}</strong></div><div><span className="detail-label">Work email</span><strong>{user?.email || '—'}</strong></div><div><span className="detail-label">Phone</span><strong>{employee.phone}</strong></div><div><span className="detail-label">Address</span><strong>{employee.address}</strong></div></div>}{tab === 'employment' && <div className="detail-grid"><div><span className="detail-label">Employee ID</span><strong>{employee.employeeCode}</strong></div><div><span className="detail-label">Department</span><strong>{employee.department}</strong></div><div><span className="detail-label">Designation</span><strong>{employee.designation}</strong></div><div><span className="detail-label">Joining date</span><strong>{formatDate(employee.joiningDate)}</strong></div><div><span className="detail-label">Annual salary</span><strong>{formatCurrency(employee.salary)}</strong></div><div><span className="detail-label">Employment status</span><strong><StatusBadge status={employee.employmentStatus} /></strong></div></div>}{tab === 'security' && <div className="security-note"><ShieldCheck size={23} /><div><h3>Your account is protected.</h3><p>NEUZEN AI uses encrypted sessions and role-aware access to keep employee data private. Contact People & Culture if you need to update your account details.</p><button type="button" className="text-button" onClick={() => push({ tone: 'info', title: 'People & Culture notified', message: 'Someone from the team will follow up with you.' })}>Request an account change</button></div></div>}</Panel></>
+}
